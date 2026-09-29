@@ -403,10 +403,25 @@ body:not([data-ds-dark-theme]) button[class*="_primary"]:not([data-dsh-plugin] *
   background-color: var(--dsw-wallpaper-glass-hover) !important;
 }
 
+/* Active key. What the 0.2.0-rc.2 shell actually does, read off the host
+   stylesheet and then forced with CDP CSS.forcePseudoState on the live row:
+     ._2H3hWW_panelRow._2H3hWW_panelActive { background:
+       var(--dsw-alias-interactive-bg-hover) }   <- the shell marker is a class
+     [data-active] forced          -> the skin rule wins the cascade and the row
+                                      computes rgba(255,255,255,0.1) = the token
+     [aria-current="page"] forced  -> stays transparent even though the skin rule
+                                      matches, so the shell does not treat that
+                                      attribute as the active state
+   Hence three heads: the two attributes (for hosts that set them) plus the
+   companion class the shell really uses. The class head carries host-stylesheet
+   provenance but is not demonstrated here - the harness page has no row in the
+   true active state, since the task-board row is not the current one. */
 [data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry])[aria-current="page"],
 [data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry])[data-active],
+[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry])[class*="panelActive"],
 [class*="panelRow"]:has([data-dsh-panel-entry])[aria-current="page"],
-[class*="panelRow"]:has([data-dsh-panel-entry])[data-active] {
+[class*="panelRow"]:has([data-dsh-panel-entry])[data-active],
+[class*="panelRow"]:has([data-dsh-panel-entry])[class*="panelActive"] {
   background-color: var(--dsw-wallpaper-glass-active) !important;
 }
 
