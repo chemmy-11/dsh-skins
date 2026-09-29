@@ -12,6 +12,49 @@
   background: none;
 }
 
+/* --- Desktop chrome wash (DSH desktop 0.2.0-rc.2): not fixable from here ----
+   Recorded because it costs the desktop build wallpaper contrast the browser
+   build keeps, and because the next contributor would otherwise walk the same
+   dead end.
+
+   Host rules, verbatim from dsh-client-ui-layout/lib/client.js inside the
+   0.2.0-rc.2 app.asar:
+
+     .BynINW_frame                                  { background: var(--dsw-alias-bg-base) }
+     [data-windows-titlebar] .BynINW_frame         { background: var(--dsw-specific-sidebar-fill) }
+     [data-windows-titlebar] .BynINW_frame:before  { background: var(--dsw-specific-sidebar-fill) }
+     [data-windows-titlebar] .BynINW_centerCol,
+     [data-platform=darwin]  .BynINW_centerCol     { background: var(--dsw-alias-bg-base) }
+
+   The preload stamps html[data-windows-titlebar] and html[data-platform] on
+   win32 with no configuration gate (preload-app.cjs, syncWindowsAppearance), so
+   the desktop build additionally washes the whole viewport with
+   --dsw-specific-sidebar-fill and paints the conversation column with a second
+   copy of the app base plus the 16px desktop content radius. Measured on the
+   live shell with this skin applied, the conversation column loses contrast
+   against the browser build: mean RGB [47,53,62] vs [54,60,69], and the single
+   most common colour rises from 30.8% to 43.2% of the region - the wallpaper
+   reads flatter. It is a wash, not a cover: the negative-z background layers
+   stay visible in both builds.
+
+   A skin cannot switch those rules off. css-safety/transform.ts
+   scopeSelectorText rewrites exactly three root-ish heads: :root, a bare html
+   head, and html[data-ds-*] (mapped onto body). Every other selector, including
+   html[data-windows-titlebar] and html[data-platform], is appended to the
+   html[data-dsh-skin="<id>"] scope as a DESCENDANT, and a second html element
+   never matches - so such a rule compiles into a silently dead selector.
+   Verified: this block injected into the live page left the frame at
+   rgba(17,25,39,0.16) and the column on the derived base unchanged.
+
+   Closing the gap needs a change above this file, either
+     - skin center: give the platform markers the same rewrite
+       scopeSelectorText already applies to html[data-ds-*], so a skin can
+       express a desktop-only rule; or
+     - host: stop painting the app base on the frame and the centre column while
+       html[data-dsh-skin] is set.
+   Until then the skin keeps the stock desktop chrome, which also keeps it
+   consistent with its own preview renders (captured on the browser build). */
+
 /* Message bubbles: the skin-center bubble-opacity slider (#937) drives FROST
    STRENGTH (backdrop blur, 0-24px), not fill color. --dsh-skin-bubble-alpha
    is 0-1 on body; fallback keeps the previous 10px. */
@@ -48,6 +91,7 @@ body:not([data-ds-dark-theme]) [class*="md-code-block"] {
 [data-slot="details"],
 [data-dsh-surface="details"],
 [data-pane="details"],
+[data-rightbar-col],
 [class*="detailsCol"] {
   background-color: var(--dsw-wallpaper-glass-fill) !important;
   -webkit-backdrop-filter: blur(var(--dsw-wallpaper-glass-blur, 10px));
@@ -323,29 +367,55 @@ body:not([data-ds-dark-theme]) button[class*="_primary"]:not([data-dsh-plugin] *
 /* Sidebar keys (任务看板 / ssh / 技能中心 panel rows): fully transparent at
    rest, hover keeps a subtle tint —NOT in the fixed-glass set (direction:
    keys are transparent, only their surfaces' backgrounds use fixed glass).
-   The rows are shell-owned `sidebar.panellist` rows now, so they are addressed
-   through the L2 `sidebar-entry` part —the skin center's compat adapter stamps
-   it on rows carrying a plugin's own glyph identity
-   (`data-dsh-panel-entry`), which the :has() guard keeps explicit. Without the
-   rest fill the shell's per-plugin nav-item hover/active colours leak through
-   and the three keys look inconsistent. */
-[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry]) {
+   Without the rest fill the shell's per-plugin nav-item hover/active colours
+   leak through and the keys look inconsistent.
+
+   Two heads, because on the live DSH desktop 0.2.0-rc.2 shell the L2 part
+   contract and the plugins installed in the profile disagree. Counted on the
+   running GUI (2026-09-29, task-board + Nautilus rows in sidebar.panellist):
+
+     [data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry])  0 matches
+     [data-dsh-taskboard-entry] / [data-dsh-ssh-entry]            0 matches
+     [class*="panelRow"]:has([data-dsh-panel-entry])              1 match
+
+   `data-dsh-panel-entry` is the anchor the contract actually ships
+   (contracts/semantic-attrs-v1.md L140: the row identity belongs to the
+   registering panel plugin, emitted on the row glyph), and the skin center's
+   own stylesheet addresses the same row with the panelRow:has(panel-entry)
+   head, so that head is the one that reaches the row today. The part-attribute
+   head is kept first so this keeps working on a shell whose compat adapter does
+   stamp `data-dsh-part="sidebar-entry"`; both heads carry the same declarations.
+
+   Measured limit, stated honestly: on the 0.2.0-rc.2 desktop shell the matched
+   row (_2H3hWW_panelRow) computes rgba(0, 0, 0, 0) at rest, on hover and with
+   aria-current set, WITH and WITHOUT this skin - the shell does not paint that
+   element in this build. The head therefore restores the rule REACH (it went
+   from matching nothing to matching the row) without a visible delta yet: it is
+   a latent-correctness re-anchor, not a visual fix, and it only earns its keep
+   once a shell or plugin build paints the row again. */
+[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry]),
+[class*="panelRow"]:has([data-dsh-panel-entry]) {
   background-color: rgba(0, 0, 0, 0) !important;
 }
 
-[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry]):hover {
+[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry]):hover,
+[class*="panelRow"]:has([data-dsh-panel-entry]):hover {
   background-color: var(--dsw-wallpaper-glass-hover) !important;
 }
 
 [data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry])[aria-current="page"],
-[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry])[data-active] {
+[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry])[data-active],
+[class*="panelRow"]:has([data-dsh-panel-entry])[aria-current="page"],
+[class*="panelRow"]:has([data-dsh-panel-entry])[data-active] {
   background-color: var(--dsw-wallpaper-glass-active) !important;
 }
 
 /* Sidebar plugin rows share one label + icon color so task-board, ssh and
    skill-explorer rows match the official nav items (icons inherit currentColor). */
 [data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry]),
-[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry]) svg {
+[data-dsh-part="sidebar-entry"]:has([data-dsh-panel-entry]) svg,
+[class*="panelRow"]:has([data-dsh-panel-entry]),
+[class*="panelRow"]:has([data-dsh-panel-entry]) svg {
   color: var(--dsw-alias-label-primary, #f9fafb) !important;
 }
 
@@ -637,6 +707,7 @@ body:has([data-slot="conversation.input.dock"] > [class*="_dock"]) [data-compose
 
 [data-dsh-better-sidebar] input,
 [data-pane="details"] input,
+[data-rightbar-col] input,
 [class*="detailsCol"] input {
   background-color: var(--dsw-specific-input-major, rgba(255, 255, 255, 0.1)) !important;
   color: var(--dsw-alias-label-primary) !important;
