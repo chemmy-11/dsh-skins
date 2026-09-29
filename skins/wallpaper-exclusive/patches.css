@@ -178,12 +178,14 @@ body:not([data-ds-dark-theme]) [class*="md-code-block"] {
    covered by the generic dialog/menu/listbox group). The panel root is covered
    by the family rule above; the skill rows take fixed glass, tab-bar / inactive
    tab stay transparent, and the active tab keeps a visible tint. */
+[data-dsh-plugin="skill-explorer"] [data-dsh-part="card"],
 [data-dsh-plugin="skill-explorer"] [data-dsh-part="skill-row"] {
   background-color: var(--dsw-wallpaper-glass-fill) !important;
   -webkit-backdrop-filter: blur(var(--dsw-wallpaper-glass-blur, 10px));
   backdrop-filter: blur(var(--dsw-wallpaper-glass-blur, 10px));
 }
 
+[data-dsh-plugin="skill-explorer"] [data-dsh-part="head"],
 [data-dsh-plugin="skill-explorer"] [data-dsh-part="tab-bar"],
 [data-dsh-plugin="skill-explorer"] [data-dsh-part="tab"] {
   background-color: transparent !important;
